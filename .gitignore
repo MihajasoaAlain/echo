@@ -30,3 +30,4 @@ pids/
 
 /src/generated/prisma
 migrations
+dist
