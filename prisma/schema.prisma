@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   
+  title     String
+  message   String
+  priority  String  
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  metadata  Json?    
+}
