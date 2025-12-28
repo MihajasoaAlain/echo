@@ -6,13 +6,26 @@ datasource db {
   provider = "postgresql"
 }
 
+model App {
+  id        String   @id @default(uuid())
+  name      String
+  apiKey    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  notifications Notification[]
+}
+
 model Notification {
   id        String   @id @default(uuid())
-  userId    String   
+  userId    String
   title     String
   message   String
-  priority  String  
+  priority  String   @default("medium")
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-  metadata  Json?    
+  metadata  Json?
+  
+  app       App      @relation(fields: [appId], references: [id])
+  appId     String
 }
