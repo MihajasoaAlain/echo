@@ -1,33 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Test NotifBridge</title>
+    <meta charset="UTF-8">
+    <title>EchoBridge Demo Dashboard</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .notif-exit { transform: translateX(100px); opacity: 0; transition: all 0.3s ease; }
+    </style>
 </head>
-<body class="bg-slate-900 text-white p-10">
-    <h1 class="text-2xl font-bold mb-5">Récepteur de Notifications</h1>
-    <div id="status" class="mb-5 text-yellow-500">Déconnecté...</div>
-    <div id="container" class="space-y-3"></div>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6 md:p-12">
+    
+    <div class="max-w-2xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white">NotifBridge</h1>
+                <p id="status" class="text-sm text-yellow-500 font-mono mt-1 flex items-center gap-2">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                    </span>
+                    Initialisation...
+                </p>
+            </div>
+            
+            <button onclick="markEverythingAsRead()" id="clearAllBtn" class="hidden px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold transition-all shadow-sm">
+                Tout marquer comme lu
+            </button>
+        </div>
 
-    <script>
-        // On simule le comportement de ton SDK
-        const userId = "user_test_999";
-        const socket = io("http://localhost:3000", {
-            query: { userId: userId }
-        });
+        <div id="container" class="space-y-4">
+            </div>
 
-        socket.on("connect", () => {
-            document.getElementById('status').innerText = "✅ Connecté en tant que : " + userId;
-            document.getElementById('status').className = "text-green-500 mb-5";
-        });
+        <div id="empty-state" class="text-center py-20 border-2 border-dashed border-slate-800 rounded-2xl">
+            <p class="text-slate-500">Aucune notification pour le moment.</p>
+        </div>
+    </div>
 
-        socket.on("notification", (data) => {
-            const div = document.createElement('div');
-            div.className = "p-4 bg-slate-800 border-l-4 border-blue-500 rounded shadow-lg animate-bounce";
-            div.innerHTML = `<h3 class="font-bold text-blue-400">${data.title}</h3><p>${data.message}</p>`;
-            document.getElementById('container').prepend(div);
-        });
-    </script>
+   <script>
+    const userId = "user_test_123";
+    const apiKey = "azerty"; 
+    const serverUrl = "http://localhost:3000";
+    const container = document.getElementById('container');
+    const status = document.getElementById('status');
+    const emptyState = document.getElementById('empty-state');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+
+    function updateUIState() {
+        const hasNotifs = container.children.length > 0;
+        emptyState.style.display = hasNotifs ? 'none' : 'block';
+        clearAllBtn.style.display = hasNotifs ? 'block' : 'none';
+    }
+
+    function displayNotif(data, isOld = false) {
+        const div = document.createElement('div');
+        div.id = `notif-${data.id}`;
+        const borderColor = isOld ? "border-slate-600" : "border-blue-500";
+        const badgeColor = isOld ? "bg-slate-700 text-slate-400" : "bg-blue-900 text-blue-200";
+        
+        div.className = `group p-5 bg-slate-800 border-l-4 ${borderColor} rounded-xl shadow-xl flex justify-between items-start transition-all duration-300 hover:bg-slate-750`;
+        div.innerHTML = `
+            <div class="flex-1 pr-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${badgeColor}">
+                        ${isOld ? 'Archive' : 'Nouveau'}
+                    </span>
+                    <h3 class="font-bold text-white">${data.title}</h3>
+                </div>
+                <p class="text-slate-400 text-sm leading-relaxed">${data.message}</p>
+            </div>
+            <button 
+                onclick="markSingleAsRead('${data.id}')"
+                class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-all"
+                title="Marquer comme lu"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </button>
+        `;
+        container.prepend(div);
+        updateUIState();
+    }
+
+    async function markSingleAsRead(id) {
+        try {
+            const response = await fetch(`${serverUrl}/api/v1/notifications/${id}/read`, {
+                method: 'PATCH',
+                headers: { 'x-api-key': apiKey }
+            });
+            if (response.ok) {
+                const el = document.getElementById(`notif-${id}`);
+                el.classList.add('notif-exit');
+                setTimeout(() => {
+                    el.remove();
+                    updateUIState();
+                }, 300);
+            }
+        } catch (err) { console.error("Erreur marquage:", err); }
+    }
+
+    // API: Tout marquer comme lu
+    async function markEverythingAsRead() {
+        try {
+            const response = await fetch(`${serverUrl}/api/v1/notifications/read-all/${userId}`, {
+                method: 'PATCH',
+                headers: { 'x-api-key': apiKey }
+            });
+            if (response.ok) {
+                container.innerHTML = '';
+                updateUIState();
+            }
+        } catch (err) { console.error("Erreur clear all:", err); }
+    }
+
+    // API: Charger l'historique
+    async function loadHistory() {
+        try {
+            const response = await fetch(`${serverUrl}/api/v1/notifications/${userId}`, {
+                headers: { 'x-api-key': apiKey }
+            });
+            const data = await response.json(); 
+            if (data.notifications && Array.isArray(data.notifications)) {
+                data.notifications.reverse().forEach(notif => displayNotif(notif, true));
+            }
+        } catch (err) { console.error("Erreur historique:", err); }
+    }
+
+    const socket = io(serverUrl, { query: { userId: userId } });
+
+    socket.on("connect", () => {
+        status.innerHTML = `<span class="h-2 w-2 rounded-full bg-green-500"></span> Connecté : ${userId}`;
+        status.className = "text-sm text-green-500 font-mono mt-1 flex items-center gap-2";
+    });
+
+    socket.on("notification", (data) => {
+        displayNotif(data, false);
+    });
+
+    // Init
+    loadHistory();
+</script>
 </body>
 </html>
