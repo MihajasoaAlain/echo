@@ -4,6 +4,10 @@ import { Redis } from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { pushNotificationSchema } from './schemas/notification.schema';
 import { prisma } from './lib/prisma';
+import { authenticateApiKey } from './middleware/auth.middleware';
+import { success } from 'zod';
+import { id } from 'zod/locales';
+import { rateLimiter } from './middleware/rate-limiter.middleware';
 
 const server = Fastify({ logger: true });
 
@@ -38,27 +42,22 @@ server.ready((err) => {
 server.get('/health', async () => {
   return { status: 'OK' };
 });
-server.post('/api/v1/push', async (request, reply) => {
-  try {
-    const data = pushNotificationSchema.parse(request.body);
 
-    const notification = await prisma.notification.create({
-      data: {
-        userId: data.userId,
-        title: data.title,
-        message: data.message,
-        priority: data.priority,
-        metadata: data.metadata
-      }
-    });
+server.post('/api/v1/push',{
+  preHandler:[authenticateApiKey,rateLimiter]
+},async (request, reply) => {
+const data = pushNotificationSchema.parse(request.body);
 
-    server.io.to(data.userId).emit('notification', notification);
+const appId = (request as any).appId;
 
-    return reply.status(200).send({ success: true, id: notification.id });
-
-  } catch (error: any) {
-    console.log(error)
+const notification = await prisma.notification.create({
+  data: {
+    ...data,
+    appId:appId
   }
+});
+server.io.to(data.userId).emit('notification', notification);
+return {success:true, id:notification.id};
 });
 
 const start = async () => {
