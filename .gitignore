@@ -27,3 +27,7 @@ pids/
 .DS_Store
 
 .vscode/
+
+/src/generated/prisma
+migrations
+dist
