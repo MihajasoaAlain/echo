@@ -8,6 +8,10 @@
     "strict": true,
     "sourceMap": true,
     "skipLibCheck": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"]
-  }
+  },
+  "exclude": [
+    "prisma.config.ts",
+    "node_modules",
+    "dist"
+  ]
 }

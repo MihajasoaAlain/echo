@@ -3,6 +3,7 @@ import fastifyIO from 'fastify-socket.io';
 import { Redis } from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { pushNotificationSchema } from './schemas/notification.schema';
+import { prisma } from './lib/prisma';
 
 const server = Fastify({ logger: true });
 
@@ -41,26 +42,22 @@ server.post('/api/v1/push', async (request, reply) => {
   try {
     const data = pushNotificationSchema.parse(request.body);
 
-    server.io.to(data.userId).emit('notification', {
-      title: data.title,
-      message: data.message,
-      priority: data.priority,
-      metadata: data.metadata,
-      timestamp: new Date().toISOString()
+    const notification = await prisma.notification.create({
+      data: {
+        userId: data.userId,
+        title: data.title,
+        message: data.message,
+        priority: data.priority,
+        metadata: data.metadata
+      }
     });
 
-    // 3. Réponse de succès
-    return reply.status(200).send({
-      success: true,
-      message: `Notification envoyée à l'utilisateur ${data.userId}`
-    });
+    server.io.to(data.userId).emit('notification', notification);
+
+    return reply.status(200).send({ success: true, id: notification.id });
 
   } catch (error: any) {
-    // Si la validation Zod échoue ou autre erreur
-    if (error.name === 'ZodError') {
-      return reply.status(400).send({ error: error.errors });
-    }
-    return reply.status(500).send({ error: "Erreur interne du serveur" });
+    console.log(error)
   }
 });
 
